@@ -1,4 +1,4 @@
-# SNMP Sensor Data Collector
+# HWg-STE: SNMP Thermometer - Data Collector
 
 A Python application that collects temperature and humidity data from [HWg-STE: SNMP Thermometer](https://www.hw-group.com/device/hwg-ste) and stores it in a PostgreSQL database.
 
