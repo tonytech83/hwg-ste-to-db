@@ -1,27 +1,30 @@
+import datetime
 import logging
-import os
+from collections.abc import List, Mapping
+from pathlib import Path
 from time import sleep
-import psycopg2 as db
-from typing import List, Mapping
-from datetime import datetime, timezone
-from dotenv import load_dotenv
 
+import psycopg2 as db
+from dotenv import dotenv_values
 from snmp import Engine, SNMPv1
 
-# Load variables from .env into environment
-load_dotenv()
+ENV_PATH = Path() / ".env"  # points to ./.env
+LOG_PATH = Path() / "error.log"  # points to ./error.log
 
 # Configure logging — only errors, only to file, no console
 logging.basicConfig(
     level=logging.ERROR,
     format="%(asctime)s - %(levelname)s - %(message)s",
-    filename=os.path.join(os.getcwd(), "error.log"),
+    filename=(LOG_PATH).resolve(),
     filemode="a",  # append mode; use "w" to overwrite each run
 )
 
+# load env values into a dict
+config = dotenv_values(ENV_PATH)
+
 POLL_INTERVAL_SEC = 10
-SENSOR_IP = os.getenv("SENSOR_IP")
-SNMP_COMMUNITY = os.getenv("SNMP_COMMUNITY").encode("ascii")
+SENSOR_IP = config.get("SENSOR_IP")
+SNMP_COMMUNITY = config.get("SNMP_COMMUNITY").encode("ascii")
 
 OIDS: Mapping[str, str] = {
     "Temperature": "1.3.6.1.4.1.21796.4.1.3.1.5.1",
@@ -33,11 +36,11 @@ def push_to_db() -> None:
     conn = None  # Initialize conn to None
     try:
         conn = db.connect(
-            dbname=os.getenv("DB_NAME"),
-            user=os.getenv("DB_USER"),
-            password=os.getenv("DB_PASSWORD"),
-            host=os.getenv("DB_HOST"),
-            port=os.getenv("DB_PORT"),
+            dbname=config.get("DB_NAME"),
+            user=config.get("DB_USER"),
+            password=config.get("DB_PASSWORD"),
+            host=config.get("DB_HOST"),
+            port=config.get("DB_PORT"),
         )
         cursor = conn.cursor()
 
@@ -50,10 +53,10 @@ def push_to_db() -> None:
                 humidity_rh NUMERIC(5, 2) NOT NULL,
                 CHECK (humidity_rh BETWEEN 0 AND 100)
             )
-            """
+            """,
         )
 
-        ts = datetime.now(timezone.utc)
+        ts = datetime.now(datetime.UTC)
         temperature, humidity = fetch_data(OIDS)
 
         cursor.execute(
@@ -66,7 +69,7 @@ def push_to_db() -> None:
 
         conn.commit()
     except db.Error as err:
-        logging.error(f"Database error: {err}")
+        logging.exception(f"Database error: {err}")
     finally:
         if conn is not None:
             conn.close()
@@ -75,16 +78,16 @@ def push_to_db() -> None:
 def fetch_data(oids) -> List[float]:
     data = []
 
-    for _, oid in oids.items():
+    for oid in oids.values():
         try:
             with Engine(SNMPv1, defaultCommunity=SNMP_COMMUNITY) as engine:
                 mgr = engine.Manager(SENSOR_IP, community=SNMP_COMMUNITY)
                 resp = mgr.get(oid)
-                oid, value = resp[0]
+                _, value = resp[0]
                 data.append(value.value * 0.1)
-       
+
         except Exception as err:
-            logging.error(f"SNMP error for OID {oid}: {err}")
+            logging.exception(f"SNMP error for OID {oid}: {err}")
 
     return data
 
