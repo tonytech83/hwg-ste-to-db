@@ -9,6 +9,7 @@ WORKDIR /app
 # Install system dependencies (if needed for psycopg2)
 RUN apt-get update && apt-get install -y \
     gcc \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
