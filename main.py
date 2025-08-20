@@ -22,7 +22,7 @@ logging.basicConfig(
 # load env values into a dict
 config = dotenv_values(ENV_PATH)
 
-POLL_INTERVAL_SEC = 10
+POLL_INTERVAL_SEC = 60
 SENSOR_IP = config.get("SENSOR_IP")
 SNMP_COMMUNITY = config.get("SNMP_COMMUNITY").encode("ascii")
 
