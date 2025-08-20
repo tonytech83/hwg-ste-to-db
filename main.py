@@ -1,6 +1,6 @@
 import datetime
 import logging
-from collections.abc import List, Mapping
+from collections.abc import Mapping
 from pathlib import Path
 from time import sleep
 
@@ -56,7 +56,7 @@ def push_to_db() -> None:
             """,
         )
 
-        ts = datetime.now(datetime.UTC)
+        ts = datetime.datetime.now(datetime.UTC)
         temperature, humidity = fetch_data(OIDS)
 
         cursor.execute(
@@ -75,7 +75,7 @@ def push_to_db() -> None:
             conn.close()
 
 
-def fetch_data(oids) -> List[float]:
+def fetch_data(oids):
     data = []
 
     for oid in oids.values():
