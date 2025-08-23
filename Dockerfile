@@ -26,6 +26,6 @@ USER appuser
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import psycopg2; print('OK')" || exit 1
+    CMD python -c "import influxdb_client; print('OK')" || exit 1
 
 CMD ["python3", "main.py"]
