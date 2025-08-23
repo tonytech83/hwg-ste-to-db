@@ -1,5 +1,12 @@
+certifi==2025.8.3
 dotenv==0.9.9
-psycopg2==2.9.10
+influxdb-client==1.49.0
 pycryptodome==3.23.0
+python-dateutil==2.9.0.post0
 python-dotenv==1.1.1
+reactivex==4.0.4
+setuptools==80.9.0
+six==1.17.0
 snmp==0.8.1
+typing_extensions==4.14.1
+urllib3==2.5.0

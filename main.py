@@ -4,8 +4,9 @@ from collections.abc import Mapping
 from pathlib import Path
 from time import sleep
 
-import psycopg2 as db
 from dotenv import dotenv_values
+from influxdb_client import InfluxDBClient, Point, WritePrecision
+from influxdb_client.client.write_api import SYNCHRONOUS
 from snmp import Engine, SNMPv1
 
 ENV_PATH = Path() / ".env"  # points to ./.env
@@ -33,46 +34,49 @@ OIDS: Mapping[str, str] = {
 
 
 def push_to_db() -> None:
-    conn = None  # Initialize conn to None
+    client = None
     try:
-        conn = db.connect(
-            dbname=config.get("DB_NAME"),
-            user=config.get("DB_USER"),
-            password=config.get("DB_PASSWORD"),
-            host=config.get("DB_HOST"),
-            port=config.get("DB_PORT"),
-        )
-        cursor = conn.cursor()
-
-        cursor.execute(
-            """
-            CREATE TABLE IF NOT EXISTS sensor_data (
-                id BIGSERIAL PRIMARY KEY,
-                ts TIMESTAMPTZ NOT NULL DEFAULT now(),
-                temperature_c NUMERIC(5, 2) NOT NULL,
-                humidity_rh NUMERIC(5, 2) NOT NULL,
-                CHECK (humidity_rh BETWEEN 0 AND 100)
-            )
-            """,
+        # Create InfluxDB client
+        client = InfluxDBClient(
+            url=config.get("INFLUX_URL"),
+            token=config.get("INFLUX_TOKEN"),
+            org=config.get("INFLUX_ORG"),
         )
 
+        write_api = client.write_api(write_options=SYNCHRONOUS)
+
+        # Get current timestamp
         ts = datetime.datetime.now(datetime.UTC)
+
+        # Fetch sensor data
         temperature, humidity = fetch_data(OIDS)
 
-        cursor.execute(
-            """
-            INSERT INTO sensor_data (ts, temperature_c, humidity_rh)
-            VALUES(%s, %s, %s)
-            """,
-            (ts, temperature, humidity),
+        # Create data point
+        point = (
+            Point("sensor_data")
+            .tag("sensor_ip", SENSOR_IP)
+            .tag(
+                "location", config.get("SENSOR_LOCATION", "unknown")
+            )  # optional location tag
+            .field("temperature_c", float(temperature))
+            .field("humidity_rh", float(humidity))
+            .time(ts, WritePrecision.S)
         )
 
-        conn.commit()
-    except db.Error as err:
-        logging.exception(f"Database error: {err}")
+        # Write to InfluxDB
+        write_api.write(
+            bucket=config.get("INFLUX_BUCKET"),
+            org=config.get("INFLUX_ORG"),
+            record=point,
+        )
+        # time.sleep(1) # separate points by 1 second
+        # logging.info(f"Data written: temp={temperature}°C, humidity={humidity}%RH")
+
+    except Exception as err:
+        logging.exception(f"InfluxDB error: {err}")
     finally:
-        if conn is not None:
-            conn.close()
+        if client is not None:
+            client.close()
 
 
 def fetch_data(oids):
