@@ -69,7 +69,6 @@ def push_to_db() -> None:
             org=config.get("INFLUX_ORG"),
             record=point,
         )
-        # time.sleep(1) # separate points by 1 second
         # logging.info(f"Data written: temp={temperature}°C, humidity={humidity}%RH")
 
     except Exception as err:
