@@ -24,6 +24,7 @@ logging.basicConfig(
 config = dotenv_values(ENV_PATH)
 
 POLL_INTERVAL_SEC = 60
+MINIMAL_VALUE = -30
 SENSOR_IP = config.get("SENSOR_IP")
 SNMP_COMMUNITY = config.get("SNMP_COMMUNITY").encode("ascii")
 
@@ -87,7 +88,16 @@ def fetch_data(oids):
                 mgr = engine.Manager(SENSOR_IP, community=SNMP_COMMUNITY)
                 resp = mgr.get(oid)
                 _, value = resp[0]
-                data.append(value.value * 0.1)
+
+                # Sensors gives strange input (maybe problem with sensor)
+                # Because of this there is a check regarding values
+                normalized_value = value.value * 0.1
+                if normalized_value > MINIMAL_VALUE:
+                    data.append(normalized_value)
+                else:
+                    logging.info(
+                        f"Data from {oid} is {normalized_value}, which is not real measurement"
+                    )
 
         except Exception as err:
             logging.exception(f"SNMP error for OID {oid}: {err}")
